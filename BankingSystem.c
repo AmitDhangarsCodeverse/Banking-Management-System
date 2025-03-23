@@ -12,7 +12,7 @@ void Services(void);
 int OpeningAccount(void);
 void SavingAccount(char *, int, int, int);
 void CurrentAccount(char *, int, int, int, int);
-void ATMpinGeneration(int, int, int);
+void ATMpinGeneration(void);
 void WithDrawMoney(int,int,int);
 void InterestCalculator(double, double, double);
 void ReceiptPrintout();
@@ -22,6 +22,18 @@ int Eligibility(int, int);
 void MoneyDeposit(char*,char*);
 void HelpCenter(int);
 
+/*Structure Datatypes*/
+struct ATMDetails{
+  int AccountNumber;
+  int MobileNumber;
+  int CardNumber;
+  int ATMPin;
+};
+struct User
+{
+  char username[50];
+  char password[50];
+};
 /*Main Menu*/
 void main()
 {
@@ -32,23 +44,17 @@ LoginProcedure:
   int option;
   printf("Enter::");
   scanf("%d", &option);
-  struct User
-  {
-    char username[50];
-    char password[50];
-  };
   switch (option)
   {
   case 1:/*Login Panel*/
     printf("---------------------------------------------\n");
     printf("Welcome to Login Panel\n");
-    char username[100], password[100];
+    struct User inputUser, savedUser;
     printf("Enter Your Username:");
-    scanf("%s", &username);
+    scanf("%s", inputUser.username);
     printf("Enter Your Password:");
-    scanf("%s", &password);
-    printf("You Entered Following Username:%s Password: %s\n", username, password);
-    struct User fetchuser;
+    scanf("%s", &inputUser.password);
+    printf("You Entered Following Username:%s Password: %s\n", inputUser.username, inputUser.password);
     FILE *fetchinguserdetails = fopen("Usernameandpasswords.txt", "r");
     if (fetchinguserdetails == NULL)
     {
@@ -56,32 +62,27 @@ LoginProcedure:
       goto LoginProcedure;
       return;
     }
-    else
-    {
-      // while (fscanf(fetchinguserdetails, "%s %s", fetchuser.username, fetchuser.password) != EOF)
-      while(fread(&fetchuser,sizeof(fetchuser),1,fetchinguserdetails)==1)
-      {
-        if (strcmp(fetchuser.username, username) == 0)
-        {
-          printf("Your Username Checking......\n");
-          printf("Your Username is matched :)\n");
-          if (strcmp(fetchuser.password, password) == 0)
-          {
-            printf("Your Password Checking......\n");
-            printf("Your Password is matched:)\n");
-            printf("Username:%s is logged Successfully\n",fetchuser.username);
-            ContinuetoMainMenu();
-            return;
-          }
+       // Move the file pointer to the beginning
+       fseek(fetchinguserdetails, 0, SEEK_SET);
+    // Check for matching credentials
+    while (fread(&savedUser, sizeof(struct User), 1, fetchinguserdetails) == 1) {
+        if (strcmp(savedUser.username, inputUser.username) == 0) {
+            printf("Your Username Checking......\n");
+            if (strcmp(savedUser.password, inputUser.password) == 0) {
+                printf("Your Password Checking......\n");
+                printf("Your Password is matched:)\n");
+                printf("Username: %s is logged in successfully\n", savedUser.username);
+                fclose(fetchinguserdetails);  // Close the file after login
+                ContinuetoMainMenu();
+                return;
+            }
+            printf("Your password is incorrect :(\n");
+            fclose(fetchinguserdetails);  // Close the file if password is wrong
+            goto LoginProcedure;
         }
-        else
-        {
-          printf("Your Details are not matched with our data :(\n");
-          goto LoginProcedure;
-          return;
-        }
-      };
-    };
+    }
+    printf("Your username is not found in our records :(\n");
+    fclose(fetchinguserdetails);  // Close the file if username is not found
     break;
   case 2:/*Sign Up Panel*/
   printf("---------------------------------------------\n");
@@ -100,6 +101,8 @@ LoginProcedure:
     }
     else
     {
+      // Move the file pointer to the end of the file for appending new data
+      fseek(Users, 0, SEEK_END);
       fwrite(&user,sizeof(user),1,Users);
       fclose(Users);
     }
@@ -145,14 +148,7 @@ void ContinuetoMainMenu(void)
   case 3:/*Generation of ATM PIN*/
     printf("Your Choice is Procceded :) \n");
     printf("---------------------------------------------\n");
-    int AccountNumber, MobileNumber, CardNumber;
-    printf("Enter Your Account Number:");
-    scanf("%d", &AccountNumber);
-    printf("Enter Your Mobile Number:");
-    scanf("%d", &MobileNumber);
-    printf("Enter the Card Number:");
-    scanf("%d", &CardNumber);
-    ATMpinGeneration(AccountNumber, MobileNumber, CardNumber);
+    ATMpinGeneration();
     break;
   case 4:/*For Interest Calculation*/
     printf("Your Choice is Procceded :) \n");
@@ -764,13 +760,21 @@ void HelpCenter(int helpno)
   }
 }
 /*ATM pin Generation*/
-void ATMpinGeneration(int AccountNumber, int MobileNumber, int CardNumber)
+void ATMpinGeneration(void)
 {
+  struct ATMDetails Atmpindetails;
+  printf("Enter Your Account Number:");
+  scanf("%d",&Atmpindetails.AccountNumber);
+  printf("Enter Your Mobile Number:");
+  scanf("%d",&Atmpindetails.MobileNumber);
+  printf("Enter the Card Number:");
+  scanf("%d",&Atmpindetails.CardNumber);
   printf("---------------------------------------------\n");
   FILE *atmpin;
   atmpin = fopen("atmpins.txt", "a");
   srand(time(0));
   int pin = 1000 + rand() % 9000;
+  Atmpindetails.ATMPin=pin;
   printf("Your ATM pin is Generated Successfully\n");
   if (atmpin == NULL)
   {
@@ -778,10 +782,7 @@ void ATMpinGeneration(int AccountNumber, int MobileNumber, int CardNumber)
   }
   else
   {
-    fprintf(atmpin, "Account Number:%d\n", AccountNumber);
-    fprintf(atmpin, "Mobile Number:%d\n", MobileNumber);
-    fprintf(atmpin, "Card Number:%d\n", CardNumber);
-    fprintf(atmpin, "ATM PIN:%d\n\n", pin);
+    fwrite(&Atmpindetails,sizeof(Atmpindetails),1,atmpin);
     fclose(atmpin);
   }
   ContinuetoMainMenu();
@@ -1004,11 +1005,14 @@ void MoneyDeposit(char *Accountnumber,char *Amount){
 
 void WithDrawMoney(int AccountNumber,int Amount,int ATMpin){
     printf("---------------------------------------------\n");
-  FILE *accountfile,atmpins;
+  struct ATMDetails SavedPIN;
+  FILE *accountfile;
+  FILE *atmpins;
   printf("Which Account is Yours?\n1.Saving Account\n2.Current Account\n");
   int choice;
   printf("Enter Your Your Account Type::");
   scanf("%d",&choice);
+  atmpins=fopen("atmpins.txt","r");
   if(choice==1){
     accountfile=fopen("SavingAccountsFile.txt","r");
   }
@@ -1018,10 +1022,17 @@ void WithDrawMoney(int AccountNumber,int Amount,int ATMpin){
   if(accountfile==NULL){
     printf("No Record is Found\n");
   }
-  while(fscanf(accountfile,"%d %s",AccountNumber)){
-    
+  fseek(atmpins,0,SEEK_SET);
+  while(fread(&SavedPIN,sizeof(SavedPIN),1,atmpins)==1){
+    if(ATMpin==SavedPIN.ATMPin){
+      printf("Your Pin is Matched\n");
+    }
+    else{
+      printf("Your Pin is not Matched\n");
+    }
   }
-}//Feel free to contribute to this project.
+}
+//Feel free to contribute to this project.
 // If you are school or college student looking for project for your practicals then it will the best for Your Project.
 
 // 1-Reviews::
