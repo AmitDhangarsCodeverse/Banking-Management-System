@@ -20,6 +20,7 @@ void BankStatement(char*);
 void Schemes(int, int);
 int Eligibility(int, int);
 void MoneyDeposit(char*,char*);
+void ATMpinForgettingProgram(int);
 void HelpCenter(int);
 
 /*Structure Datatypes*/
@@ -82,6 +83,7 @@ LoginProcedure:
         }
     }
     printf("Your username is not found in our records :(\n");
+    goto LoginProcedure;
     fclose(fetchinguserdetails);  // Close the file if username is not found
     break;
   case 2:/*Sign Up Panel*/
@@ -131,7 +133,8 @@ void ContinuetoMainMenu(void)
   printf("Enter-8:To Know about Our Schemes for Different Income Groups \n");
   printf("Enter-9:To See Bank Statements \n");
   printf("Enter-10:Help Center\n");
-  printf("Enter-11:Exit\n");
+  printf("Enter-11:To Forget Your ATM PIN\n");
+  printf("Enter-12:Exit\n");
   int option;
   printf("Enter Your Choice over Here:");
   scanf("%d", &option);
@@ -225,7 +228,16 @@ void ContinuetoMainMenu(void)
     scanf("%d",&choice);
     HelpCenter(choice);
     break;
-  case 11:/*For Existing Program*/
+  case 11:
+    printf("Your Choice is Procceded :) \n");
+    printf("---------------------------------------------\n");
+    printf("Welcome to ATM PIN Forget Program\n");
+    printf("Enter Your Account Number:");
+    int UserAccountNumber;
+    scanf("%d",&UserAccountNumber);
+    printf("We are Searching Your PIN in Our Data\n");
+    ATMpinForgettingProgram(UserAccountNumber);
+  case 12:/*For Existing Program*/
     printf("Your Choice is Procceded :) \n");
     printf("---------------------------------------------\n");
     printf("Thanks for Using Our Services :)\n");
@@ -327,9 +339,12 @@ void SavingAccount(char *CustomerName, int Amount, int MobileNumber, int DateofB
   int AccountNumber;
   int startNumber = 434454;
   AccountNumber = startNumber * 1000000 + DateofBirth;
+  /*File for Storing only Accounts*/
+  FILE *AccountsFile;
   FILE *SavingAccounts;
+  AccountsFile=fopen("AccountNumbersList.txt","a");
   SavingAccounts = fopen("SavingAccountsFile.txt", "a");
-  if (SavingAccounts == NULL)
+  if (SavingAccounts == NULL && AccountsFile==NULL)
   {
     printf("There is a error while Saving Customer Details");
   }
@@ -339,7 +354,9 @@ void SavingAccount(char *CustomerName, int Amount, int MobileNumber, int DateofB
   fprintf(SavingAccounts, "Mobile Number:%d\n", MobileNumber);
   fprintf(SavingAccounts, "Minimum Deposit:%d\n", Amount);
   fprintf(SavingAccounts, "Date of Birth: %d\n\n", DateofBirth);
+  fprintf(AccountsFile,"Account Number:%d\n",AccountNumber);
   fclose(SavingAccounts);
+  fclose(AccountsFile);
   printf("Your Saving Account is Opened With Us Successfully\n");
   ContinuetoMainMenu();
 }
@@ -350,9 +367,12 @@ void CurrentAccount(char *CustomerName, int Amount, int MobileNumber, int Dateof
   long int AccountNumber;
   int startNumber = 434454;
   AccountNumber = startNumber * 1000000 + DateofBirth;
+  /*File for Storing only Accounts*/
+  FILE *AccountsFile;
   FILE *CurrentAccounts;
+  AccountsFile=fopen("AccountNumbersList.txt","a");
   CurrentAccounts = fopen("CurrentAccountsFile.txt", "a");
-  if (CurrentAccounts == NULL)
+  if (CurrentAccounts == NULL && AccountsFile==NULL)
   {
     printf("There is a error while Saving Customer Details");
   }
@@ -363,7 +383,9 @@ void CurrentAccount(char *CustomerName, int Amount, int MobileNumber, int Dateof
   fprintf(CurrentAccounts, "Minimum Deposit:%d\n", Amount);
   fprintf(CurrentAccounts, "Income:%d\n", Income);
   fprintf(CurrentAccounts, "Date of Birth: %d\n\n", DateofBirth);
+  fprintf(AccountsFile,"Account Number:%d\n",AccountNumber);
   fclose(CurrentAccounts);
+  fclose(AccountsFile);
   printf("Your Current Account is Opened With Us Successfully\n");
   ContinuetoMainMenu();
 }
@@ -995,7 +1017,7 @@ void MoneyDeposit(char *Accountnumber,char *Amount){
     printf("Something Went While opening the File\n");
   }
   fprintf(accountfile,"Date:%s\t",__DATE__);
-  fprintf(accountfile,"Amount:%s\t",Amount);
+  fprintf(accountfile,"Amount:%s CREDIT\t",Amount);
   fprintf(accountfile,"To Amit Dhangar\t");
   fprintf(accountfile,"Time:%s\n",__TIMESTAMP__);
   fclose(accountfile);
@@ -1003,34 +1025,126 @@ void MoneyDeposit(char *Accountnumber,char *Amount){
   ContinuetoMainMenu();
 }
 
-void WithDrawMoney(int AccountNumber,int Amount,int ATMpin){
-    printf("---------------------------------------------\n");
+void WithDrawMoney(int AccountNumber, int Amount, int ATMpin) {
+  printf("---------------------------------------------\n");
+
   struct ATMDetails SavedPIN;
-  FILE *accountfile;
+  int UserInputedAccount = AccountNumber;
+  FILE *AccountTypefile;
   FILE *atmpins;
-  printf("Which Account is Yours?\n1.Saving Account\n2.Current Account\n");
+  FILE *AccountsFile;
+  FILE *statements;
+  char AccountNumberfile[50];
+  snprintf(AccountNumberfile, sizeof(AccountNumberfile), "%d.txt", AccountNumber);
+  statements = fopen(AccountNumberfile, "a");
+  if (statements == NULL) {
+      printf("Error opening statements file for account %d\n", AccountNumber);
+      return;
+  }
+
+  AccountsFile = fopen("AccountNumbersList.txt", "r");
+  if (AccountsFile == NULL) {
+      printf("Error opening AccountsFile\n");
+      fclose(statements);
+      return;
+  }
+
+  printf("Which Account is Yours?\n1. Saving Account\n2. Current Account\n");
   int choice;
-  printf("Enter Your Your Account Type::");
-  scanf("%d",&choice);
-  atmpins=fopen("atmpins.txt","r");
-  if(choice==1){
-    accountfile=fopen("SavingAccountsFile.txt","r");
+  printf("Enter Your Account Type: ");
+  scanf("%d", &choice);
+
+  atmpins = fopen("atmpins.txt", "rb");
+  if (atmpins == NULL) {
+      printf("Error opening atmpins.txt\n");
+      fclose(AccountsFile);
+      fclose(statements);
+      return;
   }
-  if(choice==2){
-    accountfile=fopen("CurrentAccountsFile.txt","r");
+
+  if (choice == 1) {
+      AccountTypefile = fopen("SavingAccountsFile.txt", "r");
+  } else if (choice == 2) {
+      AccountTypefile = fopen("CurrentAccountsFile.txt", "r");
+  } else {
+      printf("Invalid choice for account type.\n");
+      fclose(AccountsFile);
+      fclose(atmpins);
+      fclose(statements);
+      return;
   }
-  if(accountfile==NULL){
-    printf("No Record is Found\n");
+
+  if (AccountTypefile == NULL) {
+      printf("Error opening account type file.\n");
+      fclose(AccountsFile);
+      fclose(atmpins);
+      fclose(statements);
+      return;
   }
-  fseek(atmpins,0,SEEK_SET);
-  while(fread(&SavedPIN,sizeof(SavedPIN),1,atmpins)==1){
-    if(ATMpin==SavedPIN.ATMPin){
-      printf("Your Pin is Matched\n");
+
+  fseek(atmpins, 0, SEEK_SET);
+
+  int foundAccount = 0;
+  while (fscanf(AccountsFile, "%d", &UserInputedAccount) != EOF) {
+      if (UserInputedAccount == AccountNumber) {
+          printf("Your Account Number is Found\n");
+
+          foundAccount = 1;
+          int foundPin = 0;
+          while (fread(&SavedPIN, sizeof(SavedPIN), 1, atmpins)) {
+              if (SavedPIN.ATMPin == ATMpin) {
+                  printf("Your PIN is Matched\n");
+
+                  fprintf(statements, "Date: %s\t", __DATE__);
+                  fprintf(statements, "Amount: %d Debit\t", Amount);
+                  fprintf(statements, "Through ATM\t");
+                  fprintf(statements, "Time: %s\n", __TIMESTAMP__);
+
+                  fclose(statements);  // Close statements after writing transaction
+
+                  printf("Your requested amount of %d has been successfully processed.\n", Amount);
+                  foundPin = 1;
+                  break;  // Exit loop once PIN is matched
+              }
+          }
+
+          if (!foundPin) {
+              printf("Incorrect PIN.\n");
+          }
+          break;  // Exit the outer loop if account is found
+      }
+  }
+
+  if (!foundAccount) {
+      printf("We can't process your request. Account not found.\n");
+  }
+
+  fclose(AccountsFile);
+  fclose(atmpins);
+
+  // Call the function to continue to the main menu
+  ContinuetoMainMenu();
+}
+void ATMpinForgettingProgram(int AccountNumber){
+  printf("---------------------------------------------\n");
+  struct ATMDetails FogettingDetails;
+  FILE *atmpins;
+  atmpins=fopen("atmpins.txt","rb");
+  if(atmpins==NULL){
+    printf("No ATM Pin is generated Yet");
+  }
+  fseek(atmpins, 0, SEEK_SET);
+  while (fread(&FogettingDetails,sizeof(struct ATMDetails), 1, atmpins) == 1) {
+    if(FogettingDetails.AccountNumber==AccountNumber){
+      printf("Your ATM PIN is:%d",FogettingDetails.ATMPin);
+      break;
     }
     else{
-      printf("Your Pin is not Matched\n");
+      printf("Check Your Details Again\n");
     }
-  }
+}
+printf("\nThanks for Using Our Services\n");
+ContinuetoMainMenu();
 }
 //Feel free to contribute to this project.
 // If you are school or college student looking for project for your practicals then it will the best for Your Project.
